@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-PT"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Garmin Coach</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14171c;--mu:#6b7280;--ac:#0a7cff;--ac2:#16a34a;--bd:#e5e7eb;--wa:#d97706;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1115;--card:#1a1d24;--tx:#eceef2;--mu:#98a0ae;--bd:#2a2e38;--ac:#4da3ff;--ac2:#4ade80;--wa:#fbbf24;color-scheme:dark}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:4px 0 10px}h2{font-size:16px;margin:18px 0 8px}
+nav{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+nav button{flex:1;padding:9px 10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font:inherit;white-space:nowrap}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.k{font-size:12px;color:var(--mu)}.v{font-size:22px;font-weight:650}.d{font-size:12px}
+.up{color:var(--ac2)}.dn{color:var(--wa)}
+svg{width:100%;height:auto;display:block}
+label{display:block;font-size:12px;color:var(--mu);margin:8px 0 3px}
+select,input[type=number]{width:100%;padding:9px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit}
+.btn{margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:var(--ac);color:#fff;font:inherit;font-weight:600}
+.btn.s{background:var(--card);color:var(--tx);border:1px solid var(--bd);margin-top:0}
+details{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+summary{font-weight:600;cursor:pointer}
+.day{padding:7px 0;border-top:1px solid var(--bd)}.day:first-of-type{border-top:0}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:var(--ac);color:#fff;margin-right:6px}
+.tag.f{background:var(--ac2)}.tag.r{background:var(--mu)}
+.mu{color:var(--mu);font-size:13px}.warn{border-color:var(--wa);color:var(--wa);margin-bottom:8px}
+ul{margin:4px 0 0;padding-left:18px}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+</style></head><body><main>
+<h1>🏃 Garmin Coach</h1>
+<div class="row"><label class="btn s" style="flex:1;text-align:center;margin:0;padding:9px;color:var(--tx);font-size:14px">Importar garmin_data.json<input id="f" type="file" accept=".json" hidden></label><span class="mu" id="src">Dados de demonstração</span></div>
+<details class="card" style="margin-bottom:12px"><summary>🔐 Ligar à Garmin (Personal API)</summary>
+<label>Token de acesso do Worker (APP_TOKEN)</label><input id="apik" type="password" autocomplete="off" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)">
+<label>Palavra-passe (opcional; vazio = sem palavra-passe)</label><input id="pp" type="password" autocomplete="off" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)">
+<label>URL do Worker (ou proxy local)</label><input id="purl" placeholder="https://garmin.o-teu-nome.workers.dev" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)">
+<div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn s" id="gsave">Guardar cifrada</button><button class="btn" id="gsync" style="margin:0">Sincronizar</button><button class="btn s" id="gdel">Apagar</button><button class="btn s" id="gdiag">Diagnóstico</button></div>
+<div class="mu" id="gst" style="font-weight:600;margin-top:8px"></div><div class="mu" id="gm" style="white-space:pre-wrap">A chave é cifrada (AES-GCM) e só é decifrada em memória ao sincronizar.</div></details>
+<nav><button data-t="a" class="on">Visão global</button><button data-t="b">Plano</button><button data-t="c">Exercícios</button></nav>
+<section id="a"></section><section id="b" hidden></section><section id="c" hidden></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+let D=demo();
+const LIB={
+"Quadríceps":["Agachamento livre","Leg press","Passada búlgara"],
+"Isquiotibiais":["Peso morto romeno","Leg curl","Nordic curl"],
+"Glúteos":["Hip thrust","Step-up","Abdução com banda"],
+"Gémeos":["Elevação de gémeos em pé","Elevação sentado","Saltos à corda"],
+"Peito":["Supino com halteres","Flexões","Crossover"],
+"Costas":["Remada com barra","Puxada ao peito","Remada unilateral"],
+"Ombros":["Press militar","Elevações laterais","Face pull"],
+"Bíceps":["Rosca direta","Rosca martelo"],
+"Tríceps":["Extensão no cabo","Fundos no banco"],
+"Core":["Prancha","Pallof press","Dead bug","Elevação de pernas"]};
+const SPLIT={1:[["Quadríceps","Isquiotibiais","Glúteos","Costas","Peito","Core"]],
+2:[["Quadríceps","Isquiotibiais","Glúteos","Gémeos","Core"],["Peito","Costas","Ombros","Bíceps","Tríceps"]],
+3:[["Quadríceps","Glúteos","Gémeos","Core"],["Peito","Ombros","Tríceps"],["Isquiotibiais","Costas","Bíceps","Core"]]};
+const NAMES={1:["Corpo inteiro"],2:["Inferiores + core","Superiores"],3:["Pernas A + core","Empurrar","Pernas B + puxar"]};
+
+function demo(){let s=7;const R=()=>(s=s*16807%2147483647)/2147483647;const a=[],d=[],t=new Date();
+for(let i=83;i>=0;i--){const x=new Date(t);x.setDate(t.getDate()-i);const w=(x.getDay()+6)%7,iso=x.toISOString().slice(0,10),p=(83-i)/83;
+if([1,3,5].includes(w)){const km=w==5?8+p*5+R()*2:5+p*1.5+R()*1.5;a.push({date:iso,type:"run",distance_km:+km.toFixed(1),duration_min:+(km*(6.1-p*.4+R()*.3)).toFixed(0),avg_hr:Math.round(146+R()*10)})}
+if([0,2].includes(w))a.push({date:iso,type:"strength",duration_min:50+Math.round(R()*10)});
+d.push({date:iso,resting_hr:Math.round(52-p*2+R()*3),sleep_h:+(6.6+R()*1.4).toFixed(1),hrv:Math.round(48+p*8+R()*8),bb_max:Math.round(70+R()*25)})}
+return{activities:a,daily:d,vo2max:49,hr_zones:{maxHeartRateUsed:185,zone1Floor:93,zone2Floor:111,zone3Floor:130,zone4Floor:148,zone5Floor:167}}}
+
+const wk=iso=>{const x=new Date(iso);x.setDate(x.getDate()-(x.getDay()+6)%7);return x.toISOString().slice(0,10)};
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+function weeks(){const m={};D.activities.forEach(a=>{const k=wk(a.date);m[k]=m[k]||{k,km:0,runs:0,str:0,min:0};
+if(a.type=="run"){m[k].km+=a.distance_km;m[k].runs++}if(a.type=="strength")m[k].str++;m[k].min+=a.duration_min||0});
+return Object.values(m).sort((a,b)=>a.k<b.k?-1:1).slice(-12)}
+function bars(v,c,l){const mx=Math.max(...v,1),w=300/v.length;
+return`<svg viewBox="0 0 300 110">${v.map((y,i)=>{const h=y/mx*80;return`<rect x="${i*w+3}" y="${90-h}" width="${w-6}" height="${h}" rx="3" fill="${c}"/><text x="${i*w+w/2}" y="${86-h}" font-size="8" text-anchor="middle" fill="currentColor">${l?l(y):y}</text><text x="${i*w+w/2}" y="104" font-size="7" text-anchor="middle" fill="currentColor" opacity=".6">${i%2?"":"S"+(i+1)}</text>`}).join("")}</svg>`}
+function line(v,c,u){const mn=Math.min(...v)-1,mx=Math.max(...v)+1,pts=v.map((y,i)=>`${i/(v.length-1)*290+5},${95-(y-mn)/(mx-mn)*80}`).join(" ");
+return`<svg viewBox="0 0 300 110"><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2"/><text x="5" y="108" font-size="8" fill="currentColor" opacity=".6">min ${Math.round(mn+1)} · máx ${Math.round(mx-1)} ${u||"bpm"}</text></svg>`}
+function stats(){const W=weeks(),l4=W.slice(-4),p4=W.slice(-8,-4),dl=D.daily;
+const km4=avg(l4.map(w=>w.km)),kmp=avg(p4.map(w=>w.km));
+const r28=avg(dl.slice(-28).map(x=>x.resting_hr)),r7=avg(dl.slice(-7).map(x=>x.resting_hr)),sl=avg(dl.slice(-7).map(x=>x.sleep_h));
+const runs=D.activities.filter(a=>a.type=="run"&&wk(a.date)>=(l4[0]||{}).k),pace=runs.length?runs.reduce((s,a)=>s+a.duration_min,0)/runs.reduce((s,a)=>s+a.distance_km,0):0;
+const hv=n=>avg(dl.slice(-n).map(x=>x.hrv).filter(x=>x>0)),h7=hv(7),h28=hv(28),bb=avg(dl.slice(-7).map(x=>x.bb_max).filter(x=>x>0));return{W,km4,kmp,r28,r7,sl,pace,h7,h28,bb}}
+const fp=p=>p?Math.floor(p)+":"+String(Math.round(p%1*60)).padStart(2,"0")+" /km":"–";
+function card(k,v,d,c){return`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="d ${c||""}">${d||""}</div></div>`}
+const zt=i=>{const z=D.hr_zones;return z&&z.zone1Floor?" (FC "+z["zone"+i+"Floor"]+"–"+(z["zone"+(i+1)+"Floor"]||z.maxHeartRateUsed)+" bpm)":""};
+function zones(){const z=D.hr_zones;if(!z||!z.zone1Floor)return"";const f=[1,2,3,4,5].map(i=>z["zone"+i+"Floor"]);return`<h2>Zonas de FC</h2><div class="card">${f.map((x,i)=>`<div>Z${i+1}: <b>${x}–${f[i+1]||z.maxHeartRateUsed}</b> bpm</div>`).join("")}</div>`}
+function renderA(){const s=stats(),dk=s.kmp?(s.km4/s.kmp-1)*100:0;
+$("#a").innerHTML=`<div class="grid">
+${card("Km/semana (4 sem.)",s.km4.toFixed(1),(dk>=0?"▲ ":"▼ ")+Math.abs(dk).toFixed(0)+"% vs 4 sem. anteriores",dk>=0?"up":"dn")}
+${card("Ritmo médio",fp(s.pace),"VO₂ máx: "+(D.vo2max||"–"))}
+${card("FC repouso (7d)",s.r7.toFixed(0)+" bpm","média 28d: "+s.r28.toFixed(0),s.r7-s.r28>2?"dn":"up")}
+${card("Sono (7d)",s.sl.toFixed(1)+" h",s.sl<7?"abaixo de 7h":"ok",s.sl<7?"dn":"up")}
+${card("HRV (7d)",s.h7?s.h7.toFixed(0)+" ms":"–",s.h28?"média 28d: "+s.h28.toFixed(0):"",s.h7&&s.h7<s.h28*.93?"dn":"up")}
+${card("Body battery",s.bb?s.bb.toFixed(0):"–","pico médio 7d",s.bb&&s.bb<60?"dn":"up")}
+${card("Força/semana",avg(s.W.slice(-4).map(w=>w.str)).toFixed(1),"sessões (4 sem.)")}</div>
+<h2>Km por semana</h2><div class="card">${bars(s.W.map(w=>w.km),"var(--ac)",y=>Math.round(y))}</div>
+<h2>Sessões de força por semana</h2><div class="card">${bars(s.W.map(w=>w.str),"var(--ac2)")}</div>
+<h2>FC de repouso (30 dias)</h2><div class="card">${line(D.daily.slice(-30).map(x=>x.resting_hr),"var(--wa)")}</div>
+${D.daily.some(x=>x.hrv)?'<h2>HRV (30 dias)</h2><div class="card">'+line(D.daily.slice(-30).map(x=>x.hrv).filter(x=>x),"var(--ac2)","ms")+"</div>":""}${zones()}<h2>Últimas atividades</h2>${D.activities.slice(-6).reverse().map(a=>`<div class="card" style="margin-bottom:6px"><span class="tag ${a.type=="run"?"":"f"}">${a.type=="run"?"Corrida":"Força"}</span>${a.date} · ${a.type=="run"?a.distance_km+" km · "+a.duration_min+" min":a.duration_min+" min"}</div>`).join("")}`}
+
+function renderB(){const s=stats();
+$("#b").innerHTML=`<div class="card"><div class="k">Base atual: ${s.km4.toFixed(0)} km/semana (ajustada automaticamente aos teus dados)</div>
+<label>Objetivo</label><select id="g"><option value="35">5 km</option><option value="50" selected>10 km</option><option value="65">Meia maratona</option><option value="40">Manutenção</option></select>
+<label>Dias de corrida/semana</label><select id="r"><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+<label>Dias de força/semana</label><select id="n"><option>1</option><option selected>2</option><option>3</option></select>
+<label>Duração (semanas)</label><input id="w" type="number" min="4" max="12" value="8">
+<button class="btn" id="go">Gerar plano</button></div><div id="plan" style="margin-top:12px"></div>`;
+$("#go").onclick=genPlan}
+
+function genPlan(){const s=stats(),cap=+$("#g").value,R=+$("#r").value,N=+$("#n").value,Wn=Math.min(12,Math.max(4,+$("#w").value||8));
+const tired=s.r7-s.r28>3||s.sl<6.5||(s.h28&&s.h7<s.h28*.9)||(s.bb&&s.bb<50);let base=Math.max(s.km4,10),out="";
+if(tired)out+=`<div class="card warn">⚠ FC de repouso elevada, HRV baixa, body battery baixo ou pouco sono: a semana 1 foi reduzida em 15%.</div>`;
+const rp={2:[1,5],3:[1,3,5],4:[0,2,4,5],5:[0,1,3,4,5]}[R],cand=[0,2,6,1,3].filter(x=>!rp.includes(x)),extra=[0,2,3,1].filter(x=>!cand.includes(x));
+const sd=cand.concat(extra).slice(0,N).sort((a,b)=>a-b),DN=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
+for(let i=0;i<Wn;i++){const de=(i+1)%4==0;let km=Math.min(cap,base*Math.pow(1.08,i));if(de)km*=.75;if(i==0&&tired)km*=.85;
+const long=km*.35,q=km*(R==2?.65-.35:.25)+0,ez=R>2?(km-long-km*.25)/(R-2):0,sets=de?2:3,rows=[];
+rp.forEach((d,j)=>{const last=j==R-1,qual=R>=2&&j==(R==2?0:1);let t,x;
+if(last){t="Longa";x=long.toFixed(1)+" km a ritmo fácil (conversacional)"+zt(2)}
+else if(qual){const k=(R==2?km-long:km*.25);t=i%2?"Intervalos":"Tempo";x=(i%2?"Aquec. 2 km + "+Math.min(8,3+Math.floor(i/2))+"×800 m ritmo 5 km (rec. 2 min) + 1,5 km":"Aquec. 2 km + "+Math.max(2,Math.round(k*.4))+" km ritmo limiar + 1,5 km")+" · total "+k.toFixed(1)+" km"}
+else{t="Fácil";x=ez.toFixed(1)+" km a ritmo fácil"+zt(2)}
+rows.push([d,`<span class="tag">Corrida</span><b>${t}</b><div class="mu">${x}</div>`])});
+sd.forEach((d,j)=>{const gs=SPLIT[N][j],ex=gs.map(g=>{const L=LIB[g],e=L[(i+j)%L.length];return`<li><b>${g}</b>: ${e} — ${sets}×${g=="Core"?"30-45 s":de?"10":"8-10"}</li>`}).join("");
+rows.push([d,`<span class="tag f">Força</span><b>${NAMES[N][j]}</b>${rp.includes(d)?' <span class="mu">(após corrida fácil/separado)</span>':""}<ul>${ex}</ul>`])});
+rows.sort((a,b)=>a[0]-b[0]);
+out+=`<details ${i==0?"open":""}><summary>Semana ${i+1} · ${km.toFixed(0)} km${de?" · descarga":""}</summary>${rows.map(r=>`<div class="day"><span class="mu">${DN[r[0]]}</span><br>${r[1]}</div>`).join("")}</details>`}
+$("#plan").innerHTML=out}
+
+function renderC(){$("#c").innerHTML=Object.entries(LIB).map(([g,e])=>`<div class="card" style="margin-bottom:8px"><b>${g}</b><ul>${e.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("")}
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x==b));["a","b","c"].forEach(i=>$("#"+i).hidden=i!=b.dataset.t)});
+$("#f").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.activities)throw 0;D={activities:j.activities,daily:j.daily||[],vo2max:j.vo2max,hr_zones:j.hr_zones};$("#src").textContent="Dados: "+f.name;renderA();renderB()}catch(x){alert("Ficheiro inválido")}};r.readAsText(f)};
+const LS="gc_vault",E=new TextEncoder(),b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0)),msg=t=>$("#gm").textContent=t,rnd=n=>crypto.getRandomValues(new Uint8Array(n)),PS=E.encode("garmin-coach-prf");
+const aes=async s=>crypto.subtle.deriveKey({name:"HKDF",hash:"SHA-256",salt:E.encode("gc"),info:E.encode("garmin-key")},await crypto.subtle.importKey("raw",s,"HKDF",false,["deriveKey"]),{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+const idb=()=>new Promise((o,x)=>{const r=indexedDB.open("gc",1);r.onupgradeneeded=()=>r.result.createObjectStore("k");r.onsuccess=()=>o(r.result);r.onerror=()=>x(r.error)});
+const idbGet=async k=>{const d=await idb();return new Promise((o,x)=>{const q=d.transaction("k").objectStore("k").get(k);q.onsuccess=()=>o(q.result);q.onerror=()=>x(q.error)})};
+const idbSet=async(k,v)=>{const d=await idb();return new Promise((o,x)=>{const t=d.transaction("k","readwrite");t.objectStore("k").put(v,k);t.oncomplete=()=>o();t.onerror=()=>x(t.error)})};
+const mkCred=async prf=>{if(!window.PublicKeyCredential||!navigator.credentials)throw Error("WebAuthn indisponível (precisa de HTTPS ou localhost)");const c=await navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:"Garmin Coach"},user:{id:rnd(16),name:"garmin",displayName:"Garmin"},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{userVerification:"required",residentKey:"preferred"},extensions:prf?{prf:{}}:{}}});return b64(c.rawId)};
+const gate=async v=>{if(v.cred)await navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:"public-key",id:ub(v.cred)}],userVerification:"required"}})};
+async function keyFor(v,pw){
+if(v.m=="bio"){const r=await navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:"public-key",id:ub(v.cred)}],userVerification:"required",extensions:{prf:{eval:{first:PS}}}}}),o=r.getClientExtensionResults().prf;if(!o||!o.results)throw Error("PRF não suportado");return aes(o.results.first)}
+if(v.m=="dev"){await gate(v);const k=await idbGet("devkey");if(!k)throw Error("chave do dispositivo em falta");return k}
+const p=pw||prompt("Palavra-passe do cofre");if(!p)throw Error("cancelado");return aes(await crypto.subtle.deriveBits({name:"PBKDF2",salt:ub(v.salt),iterations:310000,hash:"SHA-256"},await crypto.subtle.importKey("raw",E.encode(p),"PBKDF2",false,["deriveBits"]),256))}
+async function saveKey(){const k=$("#apik").value.trim(),pw=$("#pp").value;if(!k)return msg("Cola primeiro a chave.");const v={iv:b64(rnd(12)),salt:b64(rnd(16)),m:pw?"pw":"bio"};let note="",ck;
+try{if(pw)ck=await keyFor(v,pw);else{try{v.cred=await mkCred(true);ck=await keyFor(v)}catch(e){v.m="dev";delete v.cred;note=" Biometria PRF indisponível ("+e.message+").";try{v.cred=await mkCred(false);await gate(v)}catch(e2){delete v.cred;note+=" Sem verificação biométrica: a chave fica só ligada a este browser."}ck=await crypto.subtle.generateKey({name:"AES-GCM",length:256},false,["encrypt","decrypt"]);await idbSet("devkey",ck)}}
+v.ct=b64(await crypto.subtle.encrypt({name:"AES-GCM",iv:ub(v.iv)},ck,E.encode(k)));localStorage.setItem(LS,JSON.stringify(v));$("#apik").value="";$("#pp").value="";msg("Chave guardada ("+{bio:"biometria PRF",dev:"chave do dispositivo"+(v.cred?" + biometria":""),pw:"palavra-passe"}[v.m]+")."+note)}catch(e){msg("Erro: "+e.message)}}
+async function sync(){try{const px=($("#purl").value||"").trim().replace(/\/$/,"");let B,H;
+if(px){const v=JSON.parse(localStorage.getItem(LS)||"null");if(v){msg("A desbloquear…");const tk=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:ub(v.iv)},await keyFor(v,$("#pp").value),ub(v.ct)));H={Authorization:"Bearer "+tk}}else H={};B=px;localStorage.setItem("gc_url",px);msg("A ligar ao Worker…")}else{const v=JSON.parse(localStorage.getItem(LS)||"null");if(!v)return msg("Guarda a chave ou indica o proxy.");msg("A desbloquear…");
+const key=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:ub(v.iv)},await keyFor(v,$("#pp").value),ub(v.ct)));B="https://personal.connectapi.garmin.com";msg("A obter token…");
+const tr=await fetch(B+"/personalapitoken-service/personal-api/personal-api-key/token",{method:"POST",headers:{Authorization:"ApiKey "+key}});if(!tr.ok)throw Error("token "+tr.status);const t=await tr.json();H={Authorization:"Bearer "+(t.access_token||t.accessToken)}}
+const g=async(p,q)=>{const r=await fetch(B+p+(q?"?"+new URLSearchParams(q):""),{headers:H});if(!r.ok)throw Error(p+" "+r.status);return r.status==204?null:r.json()},rows=(r,k)=>Array.isArray(r)?r:(r&&r[k])||[],iso=d=>d.toISOString().slice(0,10),en=new Date(),st=new Date(en-84*864e5);
+msg("A obter atividades…");let it=[],off=0;for(;;){const p=await g("/activitylist-service/activities/search/activities",{start:off,limit:100,startDate:iso(st),endDate:iso(en)})||[];it=it.concat(p);if(p.length<100)break;off+=100}
+const acts=[];it.forEach(a=>{const ty=(a.activityType||{}).typeKey||"",day=(a.startTimeLocal||"").slice(0,10);if(!day)return;if(ty.includes("running"))acts.push({date:day,type:"run",distance_km:+((a.distance||0)/1000).toFixed(2),duration_min:Math.round((a.duration||0)/60),avg_hr:a.averageHR});else if(ty.includes("strength"))acts.push({date:day,type:"strength",duration_min:Math.round((a.duration||0)/60)})});
+acts.sort((x,y)=>x.date<y.date?-1:1);const dm={},sl=d=>dm[d]=dm[d]||{date:d};msg("A obter dados diários…");
+for(let d0=new Date(st);d0<=en;){const d1=new Date(Math.min(+d0+27*864e5,+en)),a=iso(d0),b=iso(d1);
+rows(await g("/usersummary-service/v2/dailysummaries",{startDate:a,endDate:b}),"dailySummaries").forEach(s=>s.calendarDate&&Object.assign(sl(s.calendarDate),{resting_hr:s.restingHeartRate,sleep_h:+((s.sleepingSeconds||0)/3600).toFixed(1)}));
+try{rows(await g(`/hrv-service/hrv/daily/${a}/${b}`),"hrvSummaries").forEach(s=>s.calendarDate&&(sl(s.calendarDate).hrv=s.lastNightAvg||s.weeklyAvg))}catch(e){}
+try{rows(await g("/wellness-service/wellness/bodyBattery/reports/daily",{startDate:a,endDate:b}),"bodyBatteryReports").forEach(s=>{const d=s.date||s.calendarDate,x=(s.bodyBatteryValuesArray||[]).map(y=>y[1]).filter(y=>y!=null);if(d)sl(d).bb_max=x.length?Math.max(...x):s.charged})}catch(e){}
+d0=new Date(+d1+864e5)}
+let z=null;try{z=await g("/biometric-service/heartRateZones/v2");if(Array.isArray(z))z=z[0]}catch(e){}
+D={activities:acts,daily:Object.values(dm).filter(x=>x.resting_hr).sort((x,y)=>x.date<y.date?-1:1),vo2max:null,hr_zones:z};$("#src").textContent="Dados: Garmin (ao vivo)";renderA();renderB();msg("Sincronizado: "+acts.length+" atividades.")}
+catch(e){msg(e instanceof TypeError?"Pedido bloqueado pelo browser (provável CORS/CSP). Usa garmin_sync.py e importa o JSON.":"Erro: "+e.message)}}
+function status(){let s;try{const v=JSON.parse(localStorage.getItem(LS)||"null");s=v?"🔒 Chave guardada ("+{bio:"biometria PRF",dev:"dispositivo"+(v.cred?" + biometria":""),pw:"palavra-passe"}[v.m]+")":"Sem chave guardada"}catch(e){s="Armazenamento indisponível neste ambiente"}$("#gst").textContent=s;try{if(!$("#purl").value)$("#purl").value=localStorage.getItem("gc_url")||""}catch(e){}document.querySelector("details.card summary").textContent="🔐 Garmin · "+s}
+async function diag(){const r=["Origem: "+location.origin,"Contexto seguro (HTTPS): "+window.isSecureContext,"WebAuthn: "+!!window.PublicKeyCredential];
+try{r.push("Biometria do aparelho: "+(window.PublicKeyCredential?await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable():false))}catch(e){r.push("Biometria do aparelho: erro ("+e.message+")")}
+try{localStorage.setItem("t","1");localStorage.removeItem("t");r.push("localStorage: ok")}catch(e){r.push("localStorage: bloqueado")}
+r.push("IndexedDB: "+!!window.indexedDB);
+try{await fetch("https://personal.connectapi.garmin.com/",{mode:"no-cors"});r.push("Rede para a Garmin: acessível")}catch(e){r.push("Rede para a Garmin: bloqueada ("+e.message+")")}
+msg(r.join("\n"))}
+$("#gsave").onclick=async()=>{await saveKey();status()};$("#gsync").onclick=sync;$("#gdel").onclick=()=>{try{localStorage.removeItem(LS)}catch(e){}msg("Chave apagada.");status()};$("#gdiag").onclick=diag;status();
+renderA();renderB();renderC();
+</script></body></html>
